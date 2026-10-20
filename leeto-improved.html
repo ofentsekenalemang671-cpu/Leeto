@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b5cff" id="theme-color">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="Find taxis, combis and buses around you in Botswana. Real-time routes, live driver tracking, offline maps and instant search.">
+<meta name="color-scheme" content="light dark">
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='44' fill='%230b5cff'/%3E%3Ctext x='90' y='118' font-size='80' text-anchor='middle'%3E🚌%3C/text%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+<title>Leeto — Botswana Transport</title>
+
+<style>
+:root {
+  --blue: #0b5cff; --blue-dark: #0842cc; --ink: #10203a; --muted: #68758a;
+  --bg: #f5f7fb; --card: #fff; --line: #e6eaf0; --green: #18a566; --green-bg: #e8f8f1;
+  --orange: #f59e0b; --red: #ef4444; --shadow-sm: 0 2px 8px rgba(16,32,58,0.06);
+  --shadow: 0 10px 30px rgba(0,43,119,0.12); --radius: 18px; --radius-sm: 12px;
+  --font: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif;
+  --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e8ecf4; --muted: #94a3b8; --bg: #0b1120; --card: #151e2e; --line: #1e293b;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.3); --shadow: 0 10px 30px rgba(0,0,0,0.4);
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e8ecf4; --muted: #94a3b8; --bg: #0b1120; --card: #151e2e; --line: #1e293b;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3); --shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: var(--bg); font-family: var(--font); color: var(--ink); line-height: 1.5; -webkit-font-smoothing: antialiased; overscroll-behavior-y: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; touch-action: manipulation; }
+input, select { background: var(--card); }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+.app { max-width: 520px; margin: 0 auto; min-height: 100dvh; background: var(--bg); position: relative; padding-bottom: 80px; }
+
+header {
+  background: linear-gradient(145deg, var(--blue), #1644b8); color: #fff;
+  padding: 24px 20px 22px; border-radius: 0 0 28px 28px; position: relative; overflow: hidden;
+}
+header::before { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%); pointer-events: none; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 22px; position: relative; z-index: 1; }
+.logo { width: 36px; height: 36px; border-radius: 11px; background: #fff; color: var(--blue); display: grid; place-items: center; font-weight: 900; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.tag { margin: 18px 0 4px; font-size: 26px; line-height: 1.15; font-weight: 800; position: relative; z-index: 1; }
+.sub { opacity: 0.9; font-size: 14px; position: relative; z-index: 1; }
+
+.search { margin-top: 16px; background: #fff; border-radius: 16px; padding: 4px; display: flex; gap: 4px; box-shadow: var(--shadow); position: relative; z-index: 1; transition: var(--transition); }
+.search:focus-within { transform: translateY(-1px); box-shadow: 0 14px 36px rgba(0,43,119,0.18); }
+.search input { border: 0; outline: 0; flex: 1; padding: 12px 14px; background: transparent; color: var(--ink); font-size: 15px; }
+.search input::placeholder { color: #9aa4b2; }
+.search button { border: 0; background: var(--blue); color: #fff; border-radius: 12px; padding: 0 18px; font-weight: 700; font-size: 14px; transition: background 0.2s; }
+.search button:hover { background: var(--blue-dark); }
+.search button:active { transform: scale(0.96); }
+
+.content { padding: 20px; }
+.row { display: flex; justify-content: space-between; align-items: center; margin: 4px 0 12px; }
+.title { font-size: 18px; font-weight: 800; letter-spacing: -0.2px; }
+.link { color: var(--blue); font-size: 13px; font-weight: 700; background: none; border: none; padding: 4px 8px; border-radius: 8px; transition: background 0.2s; }
+.link:hover { background: rgba(11,92,255,0.08); }
+
+.chips { display: flex; gap: 9px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: none; -ms-overflow-style: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { border: 1px solid var(--line); background: var(--card); border-radius: 20px; padding: 9px 14px; white-space: nowrap; font-size: 14px; font-weight: 600; cursor: pointer; transition: var(--transition); box-shadow: var(--shadow-sm); user-select: none; }
+.chip:hover { border-color: var(--blue); transform: translateY(-1px); }
+.chip:active { transform: scale(0.96); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin: 10px 0; box-shadow: var(--shadow-sm); transition: var(--transition); }
+.card:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+.route { display: flex; gap: 13px; align-items: flex-start; }
+.icon { width: 44px; height: 44px; border-radius: 13px; background: linear-gradient(135deg, #edf3ff, #dbe6fd); display: grid; place-items: center; font-size: 22px; flex-shrink: 0; transition: transform 0.2s; }
+.card:hover .icon { transform: scale(1.05) rotate(-3deg); }
+.grow { flex: 1; min-width: 0; }
+.name { font-weight: 800; font-size: 15px; }
+.small { font-size: 13px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+.badge { font-size: 11px; font-weight: 800; padding: 5px 9px; border-radius: 10px; background: var(--green-bg); color: #087c4b; white-space: nowrap; flex-shrink: 0; }
+.badge.busy { background: #fef3c7; color: #92400e; }
+.badge.offline { background: #fee2e2; color: #991b1b; }
+
+.map-wrap { height: 220px; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); margin: 12px 0; position: relative; background: #dfe8ef; box-shadow: var(--shadow-sm); }
+#map { width: 100%; height: 100%; border-radius: var(--radius); z-index: 1; }
+.map-loading { position: absolute; inset: 0; display: grid; place-items: center; background: var(--card); z-index: 2; transition: opacity 0.3s; }
+.map-loading.hidden { opacity: 0; pointer-events: none; }
+
+[data-theme="dark"] .leaflet-layer, .dark .leaflet-layer { filter: brightness(0.7) contrast(1.1); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .leaflet-layer { filter: brightness(0.7) contrast(1.1); } }
+
+.notice { font-size: 12px; color: var(--muted); background: var(--card); border: 1px solid var(--line); padding: 12px; border-radius: var(--radius-sm); margin-top: 12px; line-height: 1.5; }
+.notice.success { color: var(--green); border-color: var(--green-bg); background: var(--green-bg); }
+.notice.warn { color: var(--orange); border-color: #fef3c7; background: #fffbeb; }
+.notice.error { color: var(--red); border-color: #fee2e2; background: #fef2f2; }
+
+.mode { display: flex; background: var(--card); border: 1px solid var(--line); padding: 4px; border-radius: var(--radius-sm); margin-bottom: 14px; box-shadow: var(--shadow-sm); }
+.mode button { flex: 1; border: 0; background: transparent; padding: 10px; border-radius: 9px; font-weight: 800; color: var(--muted); font-size: 14px; transition: var(--transition); }
+.mode button.sel { background: var(--blue); color: #fff; box-shadow: 0 2px 8px rgba(11,92,255,0.25); }
+
+.primary { width: 100%; border: 0; background: var(--blue); color: #fff; padding: 14px; border-radius: var(--radius-sm); font-weight: 800; margin-top: 12px; font-size: 15px; transition: var(--transition); position: relative; overflow: hidden; }
+.primary::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transform: translateX(-100%); transition: transform 0.6s; }
+.primary:hover::after { transform: translateX(100%); }
+.primary:hover { background: var(--blue-dark); transform: translateY(-1px); box-shadow: var(--shadow); }
+.primary:active { transform: scale(0.98); }
+.primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+label.small { display: block; margin-top: 16px; font-weight: 600; }
+select, input[type="text"], input[type="number"] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); margin-top: 6px; font-size: 15px; transition: var(--transition); background: var(--card); }
+select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(11,92,255,0.1); outline: none; }
+
+.stat-big { font-size: 40px; font-weight: 900; margin-top: 6px; background: linear-gradient(135deg, var(--blue), #7c3aed); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; }
+
+#toast-container { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10000; display: flex; flex-direction: column; gap: 8px; width: min(90%, 400px); pointer-events: none; }
+.toast { background: var(--card); color: var(--ink); padding: 14px 18px; border-radius: var(--radius-sm); box-shadow: 0 20px 40px rgba(0,0,0,0.2); font-size: 14px; font-weight: 600; border: 1px solid var(--line); display: flex; align-items: center; gap: 10px; animation: toastIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; pointer-events: auto; }
+.toast.leave { animation: toastOut 0.3s ease forwards; }
+.toast.ok { border-left: 4px solid var(--green); }
+.toast.warn { border-left: 4px solid var(--orange); }
+.toast.err { border-left: 4px solid var(--red); }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes toastOut { to { opacity: 0; transform: translateY(-10px) scale(0.95); } }
+
+.skeleton { background: linear-gradient(90deg, var(--line) 25%, rgba(11,92,255,0.06) 50%, var(--line) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+#install-banner { position: fixed; bottom: 76px; left: 50%; transform: translateX(-50%) translateY(120%); width: min(92%, 480px); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); z-index: 9999; display: flex; align-items: center; gap: 14px; transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+#install-banner.show { transform: translateX(-50%) translateY(0); }
+.install-icon { font-size: 32px; }
+.install-text { flex: 1; }
+.install-text b { display: block; font-size: 15px; margin-bottom: 2px; }
+.install-text span { font-size: 13px; color: var(--muted); }
+.install-close { background: none; border: none; font-size: 20px; color: var(--muted); width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; transition: background 0.2s; }
+.install-close:hover { background: var(--line); }
+
+.nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 520px; background: rgba(255,255,255,0.92); backdrop-filter: blur(12px) saturate(1.2); -webkit-backdrop-filter: blur(12px) saturate(1.2); border-top: 1px solid var(--line); display: flex; justify-content: space-around; padding: 8px 4px calc(10px + env(safe-area-inset-bottom)); z-index: 1000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .nav { background: rgba(21,30,46,0.92); } }
+:root[data-theme="dark"] .nav { background: rgba(21,30,46,0.92); }
+.nav button { border: 0; background: none; color: var(--muted); font-size: 11px; font-weight: 700; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 12px; border-radius: 12px; transition: var(--transition); position: relative; }
+.nav button .nav-icon { font-size: 22px; line-height: 1; transition: transform 0.2s; }
+.nav button:hover .nav-icon { transform: translateY(-2px); }
+.nav button.active { color: var(--blue); }
+.nav button.active::before { content: ""; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 20px; height: 3px; background: var(--blue); border-radius: 0 0 4px 4px; }
+
+.hidden { display: none !important; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+
+.empty-state { text-align: center; padding: 40px 20px; color: var(--muted); }
+.empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.6; }
+.empty-state p { font-size: 15px; font-weight: 600; }
+
+.recent-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--card); border: 1px solid var(--line); padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin: 4px 4px 0 0; cursor: pointer; transition: var(--transition); }
+.recent-tag:hover { border-color: var(--blue); }
+
+.ptr { height: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; color: var(--muted); font-size: 13px; font-weight: 700; transition: height 0.3s; }
+.ptr.visible { height: 40px; }
+
+.pulse-dot { display: inline-block; width: 8px; height: 8px; background: var(--green); border-radius: 50%; margin-right: 6px; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.8); } }
+
+.dist-badge { font-size: 12px; font-weight: 700; color: var(--blue); background: rgba(11,92,255,0.08); padding: 2px 8px; border-radius: 20px; margin-top: 4px; display: inline-block; }
+
+.toggle { appearance: none; width: 44px; height: 24px; background: var(--line); border-radius: 24px; position: relative; cursor: pointer; transition: background 0.3s; flex-shrink: 0; }
+.toggle::after { content: ""; position: absolute; width: 20px; height: 20px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+.toggle:checked { background: var(--blue); }
+.toggle:checked::after { transform: translateX(20px); }
+
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.setting-row:last-child { border-bottom: 0; }
+.setting-label { font-weight: 600; font-size: 15px; }
+.setting-desc { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+.demand-bar { height: 6px; background: var(--line); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+.demand-bar > div { height: 100%; background: linear-gradient(90deg, var(--green), var(--blue)); border-radius: 3px; transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1); }
+</style>
+</head>
+<body>
+<div class="app">
+  <div id="toast-container" role="region" aria-live="polite" aria-label="Notifications"></div>
+
+  <div id="install-banner" role="dialog" aria-label="Install app" aria-hidden="true">
+    <div class="install-icon">🚌</div>
+    <div class="install-text"><b>Install Leeto</b><span>Add to home screen for offline access</span></div>
+    <button class="primary" style="width:auto;margin:0;padding:10px 16px;font-size:13px;" onclick="installApp()">Install</button>
+    <button class="install-close" onclick="dismissInstall()" aria-label="Dismiss install banner">×</button>
+  </div>
+
+  <header>
+    <div class="brand" role="banner">
+      <div class="logo" aria-hidden="true">L</div>
+      <span>LEETO 🇧🇼</span>
+      <button class="link" style="margin-left:auto;color:#fff;opacity:0.9;" onclick="toggleTheme()" aria-label="Toggle dark mode" title="Toggle dark mode">🌓</button>
+    </div>
+    <div class="tag" id="header-tag">Find your way.</div>
+    <div class="sub" id="header-sub">Taxis, combis and buses around you.</div>
+    <div class="search" role="search">
+      <input id="search" type="search" placeholder="Where are you going?" aria-label="Search destination" autocomplete="off" oninput="onSearchInput(this.value)" onkeydown="if(event.key==='Enter')searchRoute()"/>
+      <button onclick="searchRoute()" aria-label="Find route">Find</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <div class="ptr" id="ptr" aria-hidden="true"><span>↓ Pull to refresh</span></div>
+
+    <div id="passenger">
+      <div class="row">
+        <div class="title">Nearby</div>
+        <button class="link" onclick="cycleCity()" aria-label="Change city" id="city-btn">Francistown ▾</button>
+      </div>
+      <div class="chips" role="list" aria-label="Quick destinations">
+        <button class="chip" onclick="setDest('CBD')" role="listitem">🏙️ CBD</button>
+        <button class="chip" onclick="setDest('Aerodrome')" role="listitem">🏠 Aerodrome</button>
+        <button class="chip" onclick="setDest('White City')" role="listitem">🏘️ White City</button>
+        <button class="chip" onclick="setDest('Galo Mall')" role="listitem">🛒 Galo Mall</button>
+        <button class="chip" onclick="setDest('Tati River')" role="listitem">🌊 Tati River</button>
+      </div>
+      <div id="recent-searches" style="margin-top:10px;display:none;"></div>
+      <div class="row" style="margin-top:22px">
+        <div class="title">Transport now</div>
+        <div class="link" style="display:flex;align-items:center;gap:4px;"><span class="pulse-dot" aria-hidden="true"></span>Live</div>
+      </div>
+      <div class="map-wrap" role="region" aria-label="Live transport map">
+        <div class="map-loading" id="map-loading">
+          <div style="text-align:center;color:var(--muted);"><div style="font-size:32px;margin-bottom:8px;">🗺️</div><div style="font-weight:700;">Loading map…</div></div>
+        </div>
+        <div id="map"></div>
+      </div>
+      <div id="results" role="list" aria-label="Available routes"></div>
+      <div class="notice" role="note">🛡️ Leeto shows the last known/verified status. We never pretend a vehicle is live when it isn't.</div>
+    </div>
+
+    <div id="driver" class="hidden">
+      <div class="mode" role="tablist" aria-label="Select mode">
+        <button id="pbtn" class="sel" onclick="switchMode('passenger')" role="tab" aria-selected="true" aria-controls="passenger">Passenger</button>
+        <button id="dbtn" onclick="switchMode('driver')" role="tab" aria-selected="false" aria-controls="driver">Driver</button>
+      </div>
+      <div class="card">
+        <div class="title">Driver mode</div>
+        <div class="small">Help passengers find your route in real-time.</div>
+        <label class="small" for="route">Your route</label>
+        <select id="route" onchange="onRouteChange(this.value)">
+          <option value="Route 4 · Aerodrome">Route 4 · Aerodrome</option>
+          <option value="Route 12 · White City">Route 12 · White City</option>
+          <option value="Route 7 · CBD">Route 7 · CBD</option>
+          <option value="Route 9 · Galo Mall">Route 9 · Galo Mall</option>
+          <option value="Route 15 · Tati River">Route 15 · Tati River</option>
+        </select>
+        <button class="primary" onclick="toggleDriver()" id="driverBtn" aria-pressed="false">🟢 Start route</button>
+        <div id="driverState" class="notice">Your location is not being shared.</div>
+        <div id="driverCoords" class="small hidden" style="margin-top:8px;font-family:monospace;"></div>
+      </div>
+      <div class="card">
+        <div class="title">Passenger demand</div>
+        <div class="small">People currently looking for your route</div>
+        <div class="stat-big" id="demand-num">7</div>
+        <div class="success" style="font-weight:700;font-size:13px;">↑ Active demand</div>
+        <div class="demand-bar"><div id="demand-bar" style="width:65%"></div></div>
+      </div>
+      <div class="card">
+        <div class="title">Earnings estimate</div>
+        <div class="small">Based on current demand & your route</div>
+        <div class="stat-big" style="font-size:32px;margin-top:10px;">P ~120</div>
+        <div class="small" style="margin-top:4px;">per trip · approx 6 trips/hour</div>
+      </div>
+    </div>
+
+    <div id="saved" class="hidden">
+      <div class="title" style="margin-bottom:12px;">Saved routes</div>
+      <div id="saved-list">
+        <div class="empty-state"><div class="empty-icon">☆</div><p>No saved routes yet</p><div class="small" style="margin-top:4px;">Tap the star on any route to save it here.</div></div>
+      </div>
+    </div>
+
+    <div id="more" class="hidden">
+      <div class="title" style="margin-bottom:12px;">Settings</div>
+      <div class="card">
+        <div class="setting-row">
+          <div><div class="setting-label">Dark mode</div><div class="setting-desc">Easier on the eyes at night</div></div>
+          <input type="checkbox" class="toggle" id="dark-toggle" onchange="toggleTheme(this.checked)">
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Haptic feedback</div><div class="setting-desc">Vibrate on button presses</div></div>
+          <input type="checkbox" class="toggle" id="haptic-toggle" checked onchange="Store.set('leeto_haptic', this.checked)">
+        </div>
+        <div class="setting-row">
+          <div><div class="setting-label">Data saver</div><div class="setting-desc">Reduce map quality & sync frequency</div></div>
+          <input type="checkbox" class="toggle" id="datasaver-toggle" onchange="Store.set('leeto_datasaver', this.checked)">
+        </div>
+      </div>
+      <div class="card">
+        <div class="title">About Leeto</div>
+        <div class="small" style="margin-top:8px;">Version 2.0 · Pilot</div>
+        <div class="small">Built for Botswana. Works offline.</div>
+        <button class="primary" style="margin-top:14px;background:var(--card);color:var(--blue);border:1px solid var(--line);" onclick="shareApp()">📤 Share Leeto</button>
+      </div>
+      <div class="card">
+        <div class="title">Debug info</div>
+        <div class="small" style="margin-top:8px;font-family:monospace;white-space:pre-wrap;" id="debug-info">Loading…</div>
+      </div>
+    </div>
+  </main>
+
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <button class="active" onclick="showTab('home')" aria-current="page" id="nav-home"><span class="nav-icon" aria-hidden="true">⌂</span>Home</button>
+    <button onclick="showTab('driver')" id="nav-driver"><span class="nav-icon" aria-hidden="true">🚕</span>Driver</button>
+    <button onclick="showTab('saved')" id="nav-saved"><span class="nav-icon" aria-hidden="true">☆</span>Saved</button>
+    <button onclick="showTab('more')" id="nav-more"><span class="nav-icon" aria-hidden="true">☰</span>More</button>
+  </nav>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+
+const Store = {
+  get: (k, d) => { try { const v = localStorage.getItem(k); return v !== null ? JSON.parse(v) : d; } catch { return d; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+
+const state = {
+  mode: Store.get('leeto_mode', 'passenger'),
+  darkMode: Store.get('leeto_dark', false),
+  haptic: Store.get('leeto_haptic', true),
+  dataSaver: Store.get('leeto_datasaver', false),
+  city: Store.get('leeto_city', 'Francistown'),
+  driver: {
+    route: Store.get('leeto_driver_route', 'Route 4 · Aerodrome'),
+    active: Store.get('leeto_driver_active', false),
+    watchId: null
+  },
+  recent: Store.get('leeto_recent', []),
+  saved: Store.get('leeto_saved', []),
+  userLocation: null,
+  map: null,
+  markers: [],
+  routeLayer: null,
+  installPrompt: null,
+  tab: 'home'
+};
+
+const CITIES = ['Francistown', 'Gaborone', 'Maun', 'Kasane'];
+
+const ROUTES = [
+  { id: 'r4', name: 'Taxi · Route 4', type: 'taxi', icon: '🚕', from: 'Taxi Rank', to: 'Aerodrome', seats: '4 seats', status: 'AVAILABLE', demand: 3, path: [[-21.1700,27.5100],[-21.1660,27.5140],[-21.1620,27.5180],[-21.1580,27.5220]], center: [-21.1640,27.5160], color: '#0b5cff' },
+  { id: 'r12', name: 'Combi · Route 12', type: 'combi', icon: '🚐', from: 'CBD', to: 'White City', seats: '15–22 seats', status: 'ACTIVE', demand: 7, path: [[-21.1680,27.5120],[-21.1650,27.5150],[-21.1600,27.5200],[-21.1550,27.5250]], center: [-21.1625,27.5185], color: '#18a566' },
+  { id: 'r7', name: 'Bus · Route 7', type: 'bus', icon: '🚌', from: 'CBD', to: 'Galo Mall', seats: '45 seats', status: 'AVAILABLE', demand: 4, path: [[-21.1690,27.5110],[-21.1670,27.5130],[-21.1640,27.5160],[-21.1610,27.5190]], center: [-21.1650,27.5150], color: '#f59e0b' },
+  { id: 'r9', name: 'Combi · Route 9', type: 'combi', icon: '🚐', from: 'Tati River', to: 'Galo Mall', seats: '18 seats', status: 'BUSY', demand: 12, path: [[-21.1750,27.5050],[-21.1720,27.5080],[-21.1690,27.5110],[-21.1660,27.5140],[-21.1610,27.5190]], center: [-21.1680,27.5120], color: '#ef4444' },
+  { id: 'r15', name: 'Taxi · Route 15', type: 'taxi', icon: '🚕', from: 'Aerodrome', to: 'Tati River', seats: '4 seats', status: 'AVAILABLE', demand: 2, path: [[-21.1580,27.5220],[-21.1620,27.5180],[-21.1660,27.5140],[-21.1700,27.5100],[-21.1750,27.5050]], center: [-21.1665,27.5135], color: '#8b5cf6' }
+];
+
+function vibrate(ms = 15) { if (state.haptic && navigator.vibrate) navigator.vibrate(ms); }
+
+function toast(msg, type = 'ok', duration = 3500) {
+  const container = document.getElementById('toast-container');
+  const el = document.createElement('div');
+  el.className = 'toast ' + type;
+  el.setAttribute('role', 'status');
+  const icons = { ok: '✅', warn: '⚠️', err: '❌' };
+  el.textContent = (icons[type] || '') + ' ' + msg;
+  container.appendChild(el);
+  setTimeout(() => { el.classList.add('leave'); setTimeout(() => el.remove(), 350); }, duration);
+}
+
+function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }
+
+function haversine(a, b) {
+  const R = 6371;
+  const dLat = (b[0] - a[0]) * Math.PI / 180;
+  const dLon = (b[1] - a[1]) * Math.PI / 180;
+  const lat1 = a[0] * Math.PI / 180;
+  const lat2 = b[0] * Math.PI / 180;
+  const x = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', state.darkMode ? 'dark' : 'light');
+  document.getElementById('theme-color').setAttribute('content', state.darkMode ? '#0b1120' : '#0b5cff');
+  const dt = document.getElementById('dark-toggle');
+  if (dt) dt.checked = state.darkMode;
+}
+
+function toggleTheme(force) {
+  if (typeof force === 'boolean') state.darkMode = force;
+  else state.darkMode = !state.darkMode;
+  Store.set('leeto_dark', state.darkMode);
+  applyTheme();
+  vibrate(10);
+}
+
+function initMap() {
+  if (state.map) return;
+  const mapEl = document.getElementById('map');
+  if (!mapEl || typeof L === 'undefined') { toast('Map library failed to load. Check connection.', 'err'); return; }
+  const center = [-21.1667, 27.5167];
+  state.map = L.map('map', { zoomControl: false, attributionControl: false }).setView(center, 14);
+  L.control.attribution({ prefix: false, position: 'bottomright' }).addTo(state.map);
+  const tileUrl = state.dataSaver ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png' : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+  L.tileLayer(tileUrl, { maxZoom: 19, attribution: '&copy; OSM' }).addTo(state.map);
+  state.userMarker = L.circleMarker(center, { radius: 8, fillColor: '#0b5cff', color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.9 }).addTo(state.map).bindPopup('You are here');
+  state.accuracyCircle = L.circle(center, { radius: 100, color: '#0b5cff', weight: 1, opacity: 0.2, fillOpacity: 0.05 }).addTo(state.map);
+  renderRoutesOnMap();
+  locateUser();
+  document.getElementById('map-loading').classList.add('hidden');
+}
+
+function renderRoutesOnMap(filter) {
+  if (!state.map) return;
+  if (state.markers) state.markers.forEach(m => state.map.removeLayer(m));
+  if (state.routeLayer) state.map.removeLayer(state.routeLayer);
+  state.markers = [];
+  state.routeLayer = L.layerGroup().addTo(state.map);
+  const term = (filter || '').toLowerCase();
+  const filtered = term ? ROUTES.filter(r => r.name.toLowerCase().includes(term) || r.from.toLowerCase().includes(term) || r.to.toLowerCase().includes(term)) : ROUTES;
+  filtered.forEach(route => {
+    L.polyline(route.path, { color: route.color, weight: 4, opacity: 0.7, dashArray: route.status === 'BUSY' ? '6,6' : null }).addTo(state.routeLayer);
+    const icon = L.divIcon({ className: 'custom-vehicle-icon', html: '<div style="font-size:28px;text-shadow:0 2px 6px rgba(0,0,0,0.3);transform:translate(-50%,-50%);">' + route.icon + '</div>', iconSize: [32, 32], iconAnchor: [16, 16] });
+    const m = L.marker(route.center, { icon }).addTo(state.routeLayer);
+    m.bindPopup('<b>' + route.name + '</b><br>' + route.from + ' → ' + route.to + '<br><span style="color:' + route.color + '">●</span> ' + route.status);
+    state.markers.push(m);
+  });
+  if (filtered.length > 0 && filter) {
+    const group = new L.featureGroup(state.markers);
+    state.map.fitBounds(group.getBounds().pad(0.2));
+  }
+}
+
+function locateUser() {
+  if (!navigator.geolocation) { toast('Geolocation not supported', 'warn'); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      state.userLocation = [latitude, longitude];
+      if (state.map) {
+        state.userMarker.setLatLng([latitude, longitude]);
+        state.accuracyCircle.setLatLng([latitude, longitude]).setRadius(accuracy);
+        state.map.setView([latitude, longitude], 15);
+      }
+      renderResults(document.getElementById('search').value.trim());
+    },
+    (err) => {
+      console.warn('Geolocation error:', err.message);
+      state.userLocation = [-21.1667, 27.5167];
+      renderResults(document.getElementById('search').value.trim());
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+function renderResults(filter) {
+  const container = document.getElementById('results');
+  const term = (filter || '').toLowerCase();
+  let routes = term ? ROUTES.filter(r => r.name.toLowerCase().includes(term) || r.from.toLowerCase().includes(term) || r.to.toLowerCase().includes(term) || r.seats.toLowerCase().includes(term)) : [...ROUTES];
+  if (state.userLocation) {
+    routes.sort((a, b) => haversine(state.userLocation, a.center) - haversine(state.userLocation, b.center));
+  }
+  if (routes.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><p>No routes found for "' + escapeHtml(filter) + '"</p><div class="small">Try CBD, Aerodrome, or White City</div></div>';
+    return;
+  }
+  container.innerHTML = routes.map(r => {
+    const dist = state.userLocation ? haversine(state.userLocation, r.center).toFixed(1) + ' km away' : '';
+    const isSaved = state.saved.includes(r.id);
+    const statusClass = r.status === 'BUSY' ? 'busy' : r.status === 'OFFLINE' ? 'offline' : '';
+    return '<div class="card route" role="listitem" data-route="' + r.id + '"><div class="icon" aria-hidden="true">' + r.icon + '</div><div class="grow"><div class="name">' + escapeHtml(r.name) + '</div><div class="small">' + escapeHtml(r.from) + ' → ' + escapeHtml(r.to) + '</div><div class="small">' + escapeHtml(r.seats) + ' · Verified recently</div>' + (dist ? '<div class="dist-badge">📍 ' + dist + '</div>' : '') + '</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;"><div class="badge ' + statusClass + '">' + r.status + '</div><button onclick="toggleSave(' + "'" + r.id + "'" + ')" style="background:none;border:none;font-size:18px;cursor:pointer;opacity:' + (isSaved ? 1 : 0.3) + ';transition:opacity 0.2s;" aria-label="' + (isSaved ? 'Unsave' : 'Save') + ' route" title="' + (isSaved ? 'Unsave' : 'Save') + '">' + (isSaved ? '★' : '☆') + '</button></div></div>';
+  }).join('');
+}
+
+const onSearchInput = debounce((val) => { renderResults(val); renderRoutesOnMap(val); }, 250);
+
+function searchRoute() {
+  vibrate(20);
+  const input = document.getElementById('search');
+  const val = input.value.trim();
+  if (!val) { toast('Enter a destination first', 'warn'); return; }
+  state.recent = [val, ...state.recent.filter(r => r !== val)].slice(0, 5);
+  Store.set('leeto_recent', state.recent);
+  renderRecent();
+  renderResults(val);
+  renderRoutesOnMap(val);
+  toast('Searching routes to ' + val + '…', 'ok');
+}
+
+function setDest(dest) { document.getElementById('search').value = dest; searchRoute(); }
+
+function renderRecent() {
+  const el = document.getElementById('recent-searches');
+  if (!state.recent.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = 'block';
+  el.innerHTML = '<div class="small" style="margin-bottom:4px;color:var(--muted);">Recent</div>' + state.recent.map(r => '<button class="recent-tag" onclick="setDest(' + "'" + escapeHtml(r).replace(/'/g, "\'") + "'" + ')">🕐 ' + escapeHtml(r) + '</button>').join('');
+}
+
+function escapeHtml(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+
+function toggleSave(id) {
+  vibrate(15);
+  if (state.saved.includes(id)) { state.saved = state.saved.filter(s => s !== id); toast('Route removed from saved', 'ok'); }
+  else { state.saved.push(id); toast('Route saved!', 'ok'); }
+  Store.set('leeto_saved', state.saved);
+  renderResults(document.getElementById('search').value.trim());
+  renderSaved();
+}
+
+function renderSaved() {
+  const container = document.getElementById('saved-list');
+  const savedRoutes = ROUTES.filter(r => state.saved.includes(r.id));
+  if (!savedRoutes.length) {
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">☆</div><p>No saved routes yet</p><div class="small" style="margin-top:4px;">Tap the star on any route to save it here.</div></div>';
+    return;
+  }
+  container.innerHTML = savedRoutes.map(r => '<div class="card route" onclick="showHome();setDest(' + "'" + r.to + "'" + ')" style="cursor:pointer;"><div class="icon">' + r.icon + '</div><div class="grow"><div class="name">' + escapeHtml(r.name) + '</div><div class="small">' + escapeHtml(r.from) + ' → ' + escapeHtml(r.to) + '</div></div><button onclick="event.stopPropagation();toggleSave(' + "'" + r.id + "'" + ')" style="background:none;border:none;font-size:18px;cursor:pointer;" aria-label="Remove from saved">🗑️</button></div>').join('');
+}
+
+function showTab(tab) {
+  vibrate(12);
+  state.tab = tab;
+  ['passenger', 'driver', 'saved', 'more'].forEach(id => document.getElementById(id).classList.add('hidden'));
+  document.querySelectorAll('.nav button').forEach(b => { b.classList.remove('active'); b.removeAttribute('aria-current'); });
+  if (tab === 'home') {
+    document.getElementById('passenger').classList.remove('hidden');
+    document.getElementById('nav-home').classList.add('active');
+    document.getElementById('nav-home').setAttribute('aria-current', 'page');
+    document.getElementById('header-tag').textContent = 'Find your way.';
+    document.getElementById('header-sub').textContent = 'Taxis, combis and buses around you.';
+    if (!state.map) setTimeout(initMap, 100);
+  } else if (tab === 'driver') {
+    document.getElementById('driver').classList.remove('hidden');
+    document.getElementById('nav-driver').classList.add('active');
+    document.getElementById('nav-driver').setAttribute('aria-current', 'page');
+    document.getElementById('header-tag').textContent = 'Driver mode';
+    document.getElementById('header-sub').textContent = 'Share your route with passengers.';
+    updateDemand();
+  } else if (tab === 'saved') {
+    document.getElementById('saved').classList.remove('hidden');
+    document.getElementById('nav-saved').classList.add('active');
+    document.getElementById('nav-saved').setAttribute('aria-current', 'page');
+    document.getElementById('header-tag').textContent = 'Saved routes';
+    document.getElementById('header-sub').textContent = 'Your favourite trips, one tap away.';
+    renderSaved();
+  } else if (tab === 'more') {
+    document.getElementById('more').classList.remove('hidden');
+    document.getElementById('nav-more').classList.add('active');
+    document.getElementById('nav-more').setAttribute('aria-current', 'page');
+    document.getElementById('header-tag').textContent = 'Settings';
+    document.getElementById('header-sub').textContent = 'Customize your Leeto experience.';
+    updateDebugInfo();
+  }
+}
+
+function showHome() { showTab('home'); }
+
+function switchMode(m) {
+  vibrate(10);
+  const pbtn = document.getElementById('pbtn');
+  const dbtn = document.getElementById('dbtn');
+  if (m === 'driver') { pbtn.classList.remove('sel'); pbtn.setAttribute('aria-selected', 'false'); dbtn.classList.add('sel'); dbtn.setAttribute('aria-selected', 'true'); state.mode = 'driver'; }
+  else { dbtn.classList.remove('sel'); dbtn.setAttribute('aria-selected', 'false'); pbtn.classList.add('sel'); pbtn.setAttribute('aria-selected', 'true'); state.mode = 'passenger'; }
+  Store.set('leeto_mode', state.mode);
+}
+
+function onRouteChange(val) { state.driver.route = val; Store.set('leeto_driver_route', val); updateDemand(); }
+
+function updateDemand() {
+  const route = ROUTES.find(r => state.driver.route.includes(r.to)) || ROUTES[0];
+  const demand = route.demand + Math.floor(Math.random() * 3);
+  document.getElementById('demand-num').textContent = demand;
+  document.getElementById('demand-bar').style.width = Math.min(100, demand * 8) + '%';
+}
+
+function toggleDriver() {
+  vibrate(25);
+  const btn = document.getElementById('driverBtn');
+  const stateEl = document.getElementById('driverState');
+  const coordsEl = document.getElementById('driverCoords');
+  if (!state.driver.active) {
+    if (!navigator.geolocation) { toast('Geolocation not available on this device', 'err'); return; }
+    state.driver.active = true;
+    btn.dataset.on = '1'; btn.innerHTML = '🔴 End route'; btn.setAttribute('aria-pressed', 'true');
+    stateEl.className = 'notice success';
+    stateEl.innerHTML = '🟢 <b>Route active.</b> Your location is being shared with passengers.';
+    coordsEl.classList.remove('hidden');
+    state.driver.watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        coordsEl.textContent = 'Lat: ' + latitude.toFixed(5) + ' · Lng: ' + longitude.toFixed(5) + ' · ±' + Math.round(accuracy) + 'm';
+        if (state.map && state.userMarker) {
+          state.userMarker.setLatLng([latitude, longitude]);
+          state.accuracyCircle.setLatLng([latitude, longitude]).setRadius(accuracy);
+        }
+        Store.set('leeto_driver_pos', { lat: latitude, lng: longitude, time: Date.now() });
+      },
+      (err) => { toast('Location error: ' + err.message, 'err'); toggleDriver(); },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 15000 }
+    );
+    if ('serviceWorker' in navigator && 'SyncManager' in window) {
+      navigator.serviceWorker.ready.then(reg => { reg.sync.register('leeto-location-sync').catch(() => {}); });
+    }
+    if ('Notification' in window && Notification.permission === 'default') { Notification.requestPermission(); }
+    toast('Driver mode activated. Location sharing on.', 'ok');
+  } else {
+    state.driver.active = false;
+    btn.dataset.on = '0'; btn.innerHTML = '🟢 Start route'; btn.setAttribute('aria-pressed', 'false');
+    stateEl.className = 'notice'; stateEl.textContent = 'Your location is not being shared.';
+    coordsEl.classList.add('hidden');
+    if (state.driver.watchId !== null) { navigator.geolocation.clearWatch(state.driver.watchId); state.driver.watchId = null; }
+    toast('Route ended. Location sharing stopped.', 'ok');
+  }
+  Store.set('leeto_driver_active', state.driver.active);
+}
+
+function cycleCity() {
+  vibrate(15);
+  const idx = CITIES.indexOf(state.city);
+  state.city = CITIES[(idx + 1) % CITIES.length];
+  Store.set('leeto_city', state.city);
+  document.getElementById('city-btn').textContent = state.city + ' ▾';
+  toast('Switched to ' + state.city, 'ok');
+}
+
+function installApp() {
+  vibrate(20);
+  if (state.installPrompt) {
+    state.installPrompt.prompt();
+    state.installPrompt.userChoice.then((choice) => {
+      if (choice.outcome === 'accepted') { toast('Leeto installed!', 'ok'); dismissInstall(); }
+      state.installPrompt = null;
+    });
+  } else { toast('Install not available. Add to home screen manually.', 'warn'); }
+}
+
+function dismissInstall() {
+  document.getElementById('install-banner').classList.remove('show');
+  Store.set('leeto_install_dismissed', true);
+}
+
+function shareApp() {
+  vibrate(15);
+  const shareData = { title: 'Leeto — Botswana Transport', text: 'Find taxis, combis and buses around you. Works offline!', url: window.location.href };
+  if (navigator.share) { navigator.share(shareData).catch(() => {}); }
+  else { navigator.clipboard.writeText(shareData.url).then(() => toast('Link copied to clipboard!', 'ok')); }
+}
+
+function updateDebugInfo() {
+  const info = [];
+  info.push('User Agent: ' + navigator.userAgent.slice(0, 60) + '…');
+  info.push('Platform: ' + navigator.platform);
+  info.push('Online: ' + (navigator.onLine ? 'Yes' : 'No'));
+  info.push('Geolocation: ' + (navigator.geolocation ? 'Available' : 'Not available'));
+  info.push('Vibration: ' + (navigator.vibrate ? 'Available' : 'Not available'));
+  info.push('Share API: ' + (navigator.share ? 'Available' : 'Not available'));
+  info.push('Standalone: ' + (window.matchMedia('(display-mode: standalone)').matches ? 'Yes' : 'No'));
+  info.push('Service Worker: ' + ('serviceWorker' in navigator ? 'Supported' : 'No'));
+  info.push('Sync Manager: ' + ('SyncManager' in window ? 'Supported' : 'No'));
+  info.push('Notifications: ' + ('Notification' in window ? Notification.permission : 'No'));
+  if (state.userLocation) info.push('Location: ' + state.userLocation[0].toFixed(4) + ', ' + state.userLocation[1].toFixed(4));
+  document.getElementById('debug-info').textContent = info.join('\n');
+}
+
+function init() {
+  applyTheme();
+  renderRecent();
+  document.getElementById('route').value = state.driver.route;
+  if (state.driver.active) {
+    state.driver.active = false;
+    Store.set('leeto_driver_active', false);
+  }
+  if (state.mode === 'driver') {
+    document.getElementById('pbtn').classList.remove('sel');
+    document.getElementById('dbtn').classList.add('sel');
+  }
+  setTimeout(initMap, 300);
+  renderResults();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then((reg) => console.log('[Leeto] SW registered:', reg.scope))
+      .catch((err) => console.warn('[Leeto] SW failed:', err));
+  }
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    state.installPrompt = e;
+    if (!Store.get('leeto_install_dismissed', false)) {
+      setTimeout(() => document.getElementById('install-banner').classList.add('show'), 1500);
+    }
+  });
+
+  window.addEventListener('online', () => toast('Back online', 'ok'));
+  window.addEventListener('offline', () => toast('You are offline. Leeto works in limited mode.', 'warn'));
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && state.driver.active && state.driver.watchId) {
+      navigator.geolocation.clearWatch(state.driver.watchId);
+    } else if (!document.hidden && state.driver.active) {
+      toggleDriver(); toggleDriver();
+    }
+  });
+
+  let startY = 0;
+  const ptr = document.getElementById('ptr');
+  document.addEventListener('touchstart', (e) => { startY = e.touches[0].clientY; });
+  document.addEventListener('touchmove', (e) => {
+    if (window.scrollY === 0 && e.touches[0].clientY - startY > 80) { ptr.classList.add('visible'); }
+  });
+  document.addEventListener('touchend', () => {
+    if (ptr.classList.contains('visible')) {
+      ptr.classList.remove('visible');
+      toast('Refreshing…', 'ok');
+      setTimeout(() => { renderResults(document.getElementById('search').value.trim()); updateDemand(); }, 600);
+    }
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.metaKey || e.ctrlKey) {
+      if (e.key === 'k') { e.preventDefault(); document.getElementById('search').focus(); }
+      if (e.key === 'd') { e.preventDefault(); showTab('driver'); }
+    }
+  });
+
+  console.log('%c Leeto v2.0 ', 'background:#0b5cff;color:#fff;padding:4px 8px;border-radius:4px;font-weight:bold;', 'Pilot ready.');
+}
+
+if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', init); }
+else { init(); }
+</script>
+</body>
+</html>
